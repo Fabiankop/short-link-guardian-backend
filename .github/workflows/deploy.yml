@@ -36,35 +36,27 @@ jobs:
       id: get_ip
       run: |
         echo "Attempting to get EC2 public IP..."
-        # Create a simple script to get the IP
-        cat > get_ip.sh << 'SCRIPT'
-        #!/bin/bash
         for i in {1..10}; do
-          ip=$(terraform output -raw instance_public_ip 2>/dev/null || echo "")
-          if [[ -n "$ip" && "$ip" != "null" ]]; then
-            echo "$ip"
+          unset TF_LOG
+          # Redirect all output to a temporary file to avoid GitHub Actions logs interference
+          terraform output -raw instance_public_ip > /tmp/ip_output 2>/dev/null || echo "" > /tmp/ip_output
+          IP=$(cat /tmp/ip_output | tr -d '\n')
+          
+          if [[ -n "$IP" && "$IP" != "null" ]]; then
+            # Use GitHub's environment file approach instead of direct commands
+            echo "EC2_PUBLIC_IP=${IP}" >> "$GITHUB_ENV"
+            echo "Successfully retrieved IP: ${IP}"
             exit 0
           fi
+          
+          echo "Attempt $i: IP not available yet or 'terraform output' failed. Retrying in 30 seconds..."
           sleep 30
         done
-        echo ""
+        
+        echo "Failed to get EC2 IP after multiple attempts."
         exit 1
-        SCRIPT
-        
-        chmod +x get_ip.sh
-        
-        # Run the script in a clean environment
-        IP=$(./get_ip.sh)
-        
-        if [[ -n "$IP" ]]; then
-          echo "EC2_PUBLIC_IP=$IP" >> $GITHUB_OUTPUT
-          echo "Successfully retrieved IP: $IP"
-        else
-          echo "Failed to get EC2 IP after multiple attempts."
-          exit 1
-        fi
       working-directory: ./infra
-      
+
     - name: Setup SSH
       run: |
         mkdir -p ~/.ssh
@@ -120,4 +112,4 @@ jobs:
           docker run -d -p 80:8000 --name spot2-container spot2-backend
           echo "Setup script finished."
         EOF
-      if: steps.get_ip.outputs.EC2_PUBLIC_IP != ''
+      if: env.EC2_PUBLIC_IP
