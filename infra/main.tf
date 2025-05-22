@@ -24,6 +24,12 @@ resource "aws_instance" "app_server" {
 resource "aws_key_pair" "default" {
   key_name   = "ec2-key"
   public_key = var.ec2_public_key
+
+  lifecycle {
+    prevent_destroy = false
+    create_before_destroy = true
+    ignore_changes = [public_key]
+  }
 }
 
 resource "aws_security_group" "allow_web_ssh" {
