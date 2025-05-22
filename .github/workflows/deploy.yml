@@ -43,11 +43,13 @@ jobs:
 
     - name: Copy project to EC2
       run: |
-        rsync -avz --delete -e "ssh -i ~/.ssh/id_rsa" ./ ${{ secrets.EC2_USER }}@$EC2_IP:/home/${{ secrets.EC2_USER }}/app
+        rsync -avz --delete \
+          -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" \
+          ./ ${{ secrets.EC2_USER }}@$EC2_IP:/home/${{ secrets.EC2_USER }}/app
 
     - name: Deploy with Docker Compose
       run: |
-        ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USER }}@$EC2_IP << 'EOF'
+        ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@$EC2_IP << 'EOF'
           cd ~/app
           docker compose down
           docker compose up -d --build
