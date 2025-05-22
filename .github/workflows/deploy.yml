@@ -23,49 +23,92 @@ jobs:
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v2
 
-    - name: Terraform Init
-      run: terraform -chdir=infra init
+    - name: Initialize Terraform
+      run: terraform init
+      working-directory: ./infra
 
     - name: Terraform Apply
-      run: terraform -chdir=infra apply -auto-approve -var="ec2_public_key=${{ secrets.EC2_PUBLIC_KEY }}"
+      id: apply
+      run: terraform apply -auto-approve -var="ec2_public_key=${{ secrets.EC2_PUBLIC_KEY }}"
+      working-directory: ./infra
 
     - name: Get EC2 IP
       id: get_ip
       run: |
-        echo "Esperando a que la IP pública esté disponible..."
-        for i in {1..5}; do
-          IP=$(terraform -chdir=infra output -raw instance_public_ip || echo "")
-          if [[ -n "$IP" ]]; then
-            echo "IP obtenida: $IP"
-            echo "EC2_IP=$IP" >> $GITHUB_ENV
-            echo "::add-mask::$IP"
+        echo "Attempting to get EC2 public IP..."
+        for i in {1..10}; do
+          IP=$(terraform output -raw instance_public_ip 2>/tmp/tf_output_error.log || true)
+          if [[ -n "$IP" && "$IP" != "null" ]]; then
+            echo "EC2_PUBLIC_IP=$IP" >> $GITHUB_ENV
+            echo "Successfully retrieved IP: $IP"
+            cat /tmp/tf_output_error.log # Print any errors from terraform output
             exit 0
-          else
-            echo "IP no disponible aún, reintentando... ($i/5)"
-            sleep 10
           fi
+          echo "Attempt $i: IP not available yet or 'terraform output' failed. Retrying in 30 seconds..."
+          cat /tmp/tf_output_error.log # Print any errors from terraform output
+          sleep 30
         done
-        echo "Error: no se pudo obtener la IP pública después de varios intentos"
+        echo "Failed to get EC2 IP after multiple attempts."
+        cat /tmp/tf_output_error.log # Print any errors from terraform output
         exit 1
-
+      working-directory: ./infra
+      env:
+        TF_LOG: DEBUG # Enable detailed Terraform logging for this step
 
     - name: Setup SSH
       run: |
         mkdir -p ~/.ssh
-        echo "${{ secrets.EC2_PUBLIC_KEY }}" > ~/.ssh/id_rsa
+        echo "${{ secrets.EC2_PRIVATE_KEY }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H "$EC2_IP" >> ~/.ssh/known_hosts
+        ssh-keyscan -H ${{ env.EC2_PUBLIC_IP }} >> ~/.ssh/known_hosts
+        echo "SSH private key configured."
+      # Ensure EC2_PUBLIC_IP is available from the previous step
+      if: env.EC2_PUBLIC_IP
 
-    - name: Copy project to EC2
+    - name: Verify SSH Connection
       run: |
-        rsync -avz --delete \
-          -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" \
-          ./ ${{ secrets.EC2_USER }}@$EC2_IP:/home/${{ secrets.EC2_USER }}/app
+        echo "Attempting to SSH into ${{ env.EC2_PUBLIC_IP }}..."
+        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa ec2-user@${{ env.EC2_PUBLIC_IP }} "echo 'SSH connection successful!'"
+        echo "SSH connection verified."
+      if: env.EC2_PUBLIC_IP
 
-    - name: Deploy with Docker Compose
+    - name: Copy files to EC2
       run: |
-        ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@$EC2_IP << 'EOF'
-          cd ~/app
-          docker compose down
-          docker compose up -d --build
+        echo "Copying application files..."
+        rsync -avz -e "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa" \
+          --exclude='.git/' \
+          --exclude='.github/' \
+          --exclude='infra/' \
+          --exclude='README.md' \
+          ./ ec2-user@${{ env.EC2_PUBLIC_IP }}:/home/ec2-user/app
+        echo "Files copied."
+      if: env.EC2_PUBLIC_IP
+
+    - name: Run Setup Script on EC2
+      run: |
+        echo "Running setup script on EC2..."
+        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa ec2-user@${{ env.EC2_PUBLIC_IP }} << 'EOF'
+          set -e # Exit immediately if a command exits with a non-zero status.
+          echo "Updating system packages..."
+          sudo yum update -y
+          echo "Installing Docker..."
+          sudo yum install -y docker
+          echo "Starting Docker service..."
+          sudo service docker start
+          sudo usermod -a -G docker ec2-user
+          echo "Docker installed and configured."
+          echo "Navigating to app directory..."
+          cd /home/ec2-user/app
+          echo "Listing contents of app directory:"
+          ls -la
+          echo "Building Docker image..."
+          docker build -t spot2-backend .
+          echo "Stopping any existing container named spot2-container..."
+          docker stop spot2-container || true # Ignore error if container doesn't exist
+          echo "Removing any existing container named spot2-container..."
+          docker rm spot2-container || true   # Ignore error if container doesn't exist
+          echo "Running new Docker container..."
+          docker run -d -p 80:8000 --name spot2-container spot2-backend
+          echo "Setup script finished."
         EOF
+      if: env.EC2_PUBLIC_IP
