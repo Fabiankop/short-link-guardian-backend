@@ -42,41 +42,32 @@ def is_url_safe(url: str) -> bool:
 
     return True
 
-
-@router.get("/{code}")
+@router.get("/api/url/{code}", response_model=dict)
 @limiter.limit("60/minute")
-async def redirect_to_url(
+async def get_url_info(
     code: str,
     request: Request,
     db: AsyncSession = Depends(get_session)
 ):
-    """Redirecciona a la URL original a partir del código corto."""
-    # Registrar intento de redirección para análisis de seguridad
+    """Devuelve la URL original desde un código corto (uso AJAX)."""
+    
     client_ip = request.client.host if request.client else "unknown"
     user_agent = request.headers.get("user-agent", "unknown")
-    security_logger.info(f"Intento de redirección: code={code}, ip={client_ip}, user_agent={user_agent}")
+    security_logger.info(f"Consulta AJAX: code={code}, ip={client_ip}, user_agent={user_agent}")
 
-    # Buscar la URL en la base de datos
     q = select(URL).where(URL.code == code)
     result = await db.execute(q)
     url = result.scalars().first()
 
     if not url:
-        security_logger.warning(f"Intento de acceso a código inexistente: {code} desde {client_ip}")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="URL no encontrada"
-        )
+        security_logger.warning(f"Código inexistente: {code} desde {client_ip}")
+        raise HTTPException(status_code=404, detail="URL no encontrada")
 
-    # Verificar si la URL es segura antes de redirigir
     if not is_url_safe(url.original_url):
-        security_logger.error(f"URL bloqueada por seguridad: {url.original_url}, code={code}, ip={client_ip}")
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="URL bloqueada por motivos de seguridad"
-        )
+        security_logger.error(f"URL insegura: {url.original_url}")
+        raise HTTPException(status_code=403, detail="URL bloqueada por seguridad")
 
-    # Incrementar contador de accesos
+    # Registrar acceso (opcional para AJAX)
     await db.execute(
         update(URL)
         .where(URL.id == url.id)
@@ -84,13 +75,4 @@ async def redirect_to_url(
     )
     await db.commit()
 
-    # Crear respuesta con cabeceras de seguridad
-    response = Response(
-        status_code=status.HTTP_307_TEMPORARY_REDIRECT,
-        headers={"Location": url.original_url}
-    )
-
-    # Agregar cabeceras de seguridad
-    set_security_headers(response)
-
-    return response
+    return {"url": url.original_url}
