@@ -1,3 +1,13 @@
+terraform {
+  backend "s3" {
+    bucket = "nombre-bucket-para-estados-terraform"
+    key    = "spot2/terraform.tfstate"
+    region = "us-east-1"
+    encrypt = true
+    dynamodb_table = "terraform-state-lock"
+  }
+}
+
 resource "aws_vpc" "main" {
   cidr_block = "10.0.0.0/16"
 }
@@ -19,8 +29,6 @@ resource "aws_instance" "app_server" {
     Name = "ShortLinkServer"
   }
 }
-
-
 
 resource "aws_security_group" "allow_web_ssh" {
   name        = "allow_web_ssh"

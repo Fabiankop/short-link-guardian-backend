@@ -1,4 +1,4 @@
-name: Terraform Deploy EC2 and Deploy App
+name: Deploy App to EC2
 
 on:
   push:
@@ -6,114 +6,76 @@ on:
       - main
 
 jobs:
-  deploy:
+  deploy_to_ec2:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout
+    - name: Checkout Code
       uses: actions/checkout@v3
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v2
+    # SSH y Deploy en EC2 (copia los archivos)
+    - name: Deploy to EC2 instance
+      uses: easingthemes/ssh-deploy@v4.1.10
       with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-1
+        SSH_PRIVATE_KEY: ${{ secrets.EC2_PRIVATE_KEY }}
+        SOURCE: "./"
+        REMOTE_HOST: "${{ secrets.EC2_HOST }}"
+        REMOTE_USER: "ec2-user"
+        TARGET: "/home/ec2-user/app"
+        EXCLUDE: ".git/, .github/, infra/, README.md"
 
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v2
-
-    - name: Initialize Terraform
-      run: terraform init
-      working-directory: ./infra
-
-    - name: Terraform Apply
-      id: apply
-      run: terraform apply -auto-approve -var="ec2_public_key=${{ secrets.EC2_PUBLIC_KEY }}"
-      working-directory: ./infra
-
-    - name: Get EC2 IP
-      id: get_ip
-      run: |
-        echo "Attempting to get EC2 public IP..."
-        for i in {1..10}; do
-          unset TF_LOG
-          # Redirect all output to a temporary file to avoid GitHub Actions logs interference
-          terraform output -raw instance_public_ip > /tmp/ip_output 2>/dev/null || echo "" > /tmp/ip_output
-          IP=$(cat /tmp/ip_output | tr -d '\n')
-
-          if [[ -n "$IP" && "$IP" != "null" ]]; then
-            # Use GitHub's environment file approach instead of direct commands
-            echo "EC2_PUBLIC_IP=${IP}" >> "$GITHUB_ENV"
-            echo "Successfully retrieved IP: ${IP}"
-            exit 0
+    # Configurar y ejecutar la aplicación en Docker
+    - name: Setup Docker and Run Application
+      uses: appleboy/ssh-action@master
+      with:
+        host: "${{ secrets.EC2_HOST }}"
+        username: "ec2-user"
+        key: ${{ secrets.EC2_PRIVATE_KEY }}
+        script: |
+          # Verificar Docker
+          if ! command -v docker &> /dev/null; then
+            echo "Instalando Docker..."
+            sudo yum update -y
+            sudo yum install -y docker
+            sudo service docker start
+            sudo usermod -a -G docker ec2-user
+            
+            # Instalar Docker Compose
+            echo "Instalando Docker Compose..."
+            sudo curl -L "https://github.com/docker/compose/releases/download/v2.18.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+            sudo chmod +x /usr/local/bin/docker-compose
+            
+            # Necesario para que los cambios de grupo tengan efecto en esta sesión
+            sudo -i -u ec2-user bash << 'EOC'
+              cd /home/ec2-user/app
+              docker-compose up -d --build
+            EOC
+          else
+            echo "Docker ya instalado, verificando Docker Compose..."
+            
+            # Verificar e instalar Docker Compose si es necesario
+            if ! command -v docker-compose &> /dev/null; then
+              echo "Instalando Docker Compose..."
+              sudo curl -L "https://github.com/docker/compose/releases/download/v2.18.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+              sudo chmod +x /usr/local/bin/docker-compose
+            fi
+            
+            echo "Desplegando aplicación con Docker Compose..."
+            cd /home/ec2-user/app
+            docker-compose up -d --build
+          fi
+          
+          # Verificar que el contenedor está corriendo
+          sleep 5
+          SERVICE_NAME=$(docker-compose ps --services | head -n 1)
+          if [ "$(docker-compose ps -q $SERVICE_NAME)" ]; then
+            echo "Contenedor desplegado correctamente con Docker Compose"
+          else
+            echo "Error al desplegar el contenedor con Docker Compose"
+            docker-compose logs
+            exit 1
           fi
 
-          echo "Attempt $i: IP not available yet or 'terraform output' failed. Retrying in 30 seconds..."
-          sleep 30
-        done
-
-        echo "Failed to get EC2 IP after multiple attempts."
-        exit 1
-      working-directory: ./infra
-
-    - name: Setup SSH
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.EC2_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H ${{ steps.get_ip.outputs.EC2_PUBLIC_IP }} >> ~/.ssh/known_hosts
-        echo "SSH private key configured."
-      if: steps.get_ip.outputs.EC2_PUBLIC_IP != ''
-
-    - name: Verify SSH Connection
-      run: |
-        echo "Attempting to SSH into ${{ steps.get_ip.outputs.EC2_PUBLIC_IP }}..."
-        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa ec2-user@${{ steps.get_ip.outputs.EC2_PUBLIC_IP }} "echo 'SSH connection successful!'"
-        echo "SSH connection verified."
-      if: steps.get_ip.outputs.EC2_PUBLIC_IP != ''
-
-    - name: Copy files to EC2
-      run: |
-        echo "Copying application files..."
-        rsync -avz -e "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa" \
-          --exclude='.git/' \
-          --exclude='.github/' \
-          --exclude='infra/' \
-          --exclude='README.md' \
-          ./ ec2-user@${{ steps.get_ip.outputs.EC2_PUBLIC_IP }}:/home/ec2-user/app
-        echo "Files copied."
-      if: steps.get_ip.outputs.EC2_PUBLIC_IP != ''
-
-    - name: Run Setup Script on EC2
-      run: |
-        echo "Running setup script on EC2..."
-        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa ec2-user@${{ steps.get_ip.outputs.EC2_PUBLIC_IP }} << 'EOF'
-          set -e # Exit immediately if a command exits with a non-zero status.
-          echo "Updating system packages..."
-          sudo yum update -y
-          echo "Installing Docker..."
-          sudo yum install -y docker
-          echo "Starting Docker service..."
-          sudo service docker start
-          sudo usermod -a -G docker ec2-user
-          echo "Docker installed and configured."
-          echo "Navigating to app directory..."
-          cd /home/ec2-user/app
-          echo "Listing contents of app directory:"
-          ls -la
-          echo "Building Docker image..."
-          docker build -t spot2-backend .
-          echo "Stopping any existing container named spot2-container..."
-          docker stop spot2-container || true # Ignore error if container doesn't exist
-          echo "Removing any existing container named spot2-container..."
-          docker rm spot2-container || true   # Ignore error if container doesn't exist
-          echo "Running new Docker container..."
-          docker run -d -p 80:8000 --name spot2-container spot2-backend
-          echo "Setup script finished."
-        EOF
-      if: steps.get_ip.outputs.EC2_PUBLIC_IP != ''
-
+    # Mostrar URL de la aplicación
     - name: Display Application URL
       run: |
         echo "====================================================="
@@ -121,8 +83,7 @@ jobs:
         echo "====================================================="
         echo "Tu aplicación ha sido desplegada en:"
         echo ""
-        echo "🔗 URL: http://${{ env.EC2_PUBLIC_IP }}"
+        echo "🔗 URL: http://${{ secrets.EC2_HOST }}"
         echo ""
         echo "Puedes acceder a la aplicación en este enlace"
         echo "====================================================="
-      if: success() && env.EC2_PUBLIC_IP != ''
