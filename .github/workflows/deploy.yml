@@ -33,8 +33,9 @@ jobs:
       id: ec2_ip
       run: |
         IP=$(terraform -chdir=infra output -raw instance_public_ip)
-        echo "EC2_IP=$IP" >> $GITHUB_ENV
+        echo "EC2_IP=$IP" >> "$GITHUB_ENV"
         echo "::add-mask::$IP"
+        echo "Public IP: $IP"
 
     - name: Setup SSH
       run: |
