@@ -9,11 +9,11 @@ resource "aws_subnet" "main" {
 }
 
 resource "aws_instance" "app_server" {
-  ami                    = "ami-053b0d53c279acc90" # Amazon Linux 2
+  ami                    = "ami-053b0d53c279acc90"
   instance_type          = "t2.micro"
   subnet_id              = aws_subnet.main.id
   vpc_security_group_ids = [aws_security_group.allow_web_ssh.id]
-  key_name               = aws_key_pair.default.key_name
+  key_name               = "ec2-key"
 
   tags = {
     Name = "ShortLinkServer"
@@ -21,16 +21,6 @@ resource "aws_instance" "app_server" {
 }
 
 
-resource "aws_key_pair" "default" {
-  key_name   = "ec2-key"
-  public_key = var.ec2_public_key
-
-  lifecycle {
-    prevent_destroy = false
-    create_before_destroy = true
-    ignore_changes = [public_key]
-  }
-}
 
 resource "aws_security_group" "allow_web_ssh" {
   name        = "allow_web_ssh"
