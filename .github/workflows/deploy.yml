@@ -30,9 +30,8 @@ jobs:
       run: terraform -chdir=infra apply -auto-approve -var="ec2_public_key=${{ secrets.EC2_PUBLIC_KEY }}"
 
     - name: Get EC2 IP
-      id: ec2_ip
       run: |
-        IP=$(terraform -chdir=infra output -raw instance_public_ip 2>/dev/null)
+        IP=$(terraform -chdir=infra output -raw instance_public_ip)
         echo "EC2_IP=$IP" >> $GITHUB_ENV
         echo "::add-mask::$IP"
         echo "Public IP: $IP"
