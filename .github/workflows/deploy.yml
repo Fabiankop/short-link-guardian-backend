@@ -27,7 +27,7 @@ jobs:
       run: terraform -chdir=infra init
 
     - name: Terraform Apply
-      run: terraform -chdir=infra apply -auto-approve
+      run: terraform -chdir=infra apply -auto-approve -var="ec2_public_key=${{ secrets.EC2_PUBLIC_KEY }}"
 
     - name: Get EC2 IP
       id: ec2_ip
