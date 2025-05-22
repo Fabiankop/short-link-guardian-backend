@@ -1,18 +1,23 @@
 from pydantic_settings import BaseSettings
 from pydantic import SecretStr, Field
+from typing import Optional # Import Optional
 
 class Settings(BaseSettings):
     """
     Settings for the application.
     """
-    # Database
+    # Direct URL overrides (for environment variable setting)
+    DATABASE_URL_OVERRIDE: Optional[str] = Field(default=None, env="DATABASE_URL")
+    REDIS_URL_OVERRIDE: Optional[str] = Field(default=None, env="REDIS_URL")
+
+    # Database components (used if direct URL override is not provided)
     db_user: str = Field(default="postgres")
     db_password: str = Field(default="postgres")
     db_host: str = Field(default="db")
     db_port: int = Field(default=5432)
     db_name: str = Field(default="app_db")
 
-    # Redis
+    # Redis components (used if direct URL override is not provided)
     redis_host: str = Field(default="redis")
     redis_port: int = Field(default=6379)
 
@@ -31,10 +36,14 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
+        if self.DATABASE_URL_OVERRIDE:
+            return self.DATABASE_URL_OVERRIDE
         return f"postgresql+asyncpg://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"
 
     @property
     def redis_url(self) -> str:
+        if self.REDIS_URL_OVERRIDE:
+            return self.REDIS_URL_OVERRIDE
         return f"redis://{self.redis_host}:{self.redis_port}/0"
 
     class Config:

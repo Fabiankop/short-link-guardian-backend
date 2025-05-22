@@ -1,10 +1,10 @@
 import pytest
-from httpx import AsyncClient
+from httpx import AsyncClient, ASGITransport # Import ASGITransport
 from app.main import app
 
 @pytest.mark.asyncio
 async def test_register_and_login():
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         # Registro
         response = await ac.post("/api/v1/users/register", json={
             "email": "test@example.com",
