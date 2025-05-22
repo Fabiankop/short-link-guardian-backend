@@ -37,23 +37,20 @@ jobs:
       run: |
         echo "Attempting to get EC2 public IP..."
         for i in {1..10}; do
-          IP=$(terraform output -raw instance_public_ip 2>/tmp/tf_output_error.log || true)
+          # Temporarily disable TF_LOG for the output command
+          unset TF_LOG
+          IP=$(terraform output -raw instance_public_ip 2>/dev/null || echo "")
           if [[ -n "$IP" && "$IP" != "null" ]]; then
             echo "EC2_PUBLIC_IP=$IP" >> $GITHUB_ENV
             echo "Successfully retrieved IP: $IP"
-            cat /tmp/tf_output_error.log # Print any errors from terraform output
             exit 0
           fi
           echo "Attempt $i: IP not available yet or 'terraform output' failed. Retrying in 30 seconds..."
-          cat /tmp/tf_output_error.log # Print any errors from terraform output
           sleep 30
         done
         echo "Failed to get EC2 IP after multiple attempts."
-        cat /tmp/tf_output_error.log # Print any errors from terraform output
         exit 1
       working-directory: ./infra
-      env:
-        TF_LOG: DEBUG # Enable detailed Terraform logging for this step
 
     - name: Setup SSH
       run: |
