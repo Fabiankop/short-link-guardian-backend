@@ -88,7 +88,7 @@ jobs:
     - name: Run Setup Script on EC2
       run: |
         echo "Running setup script on EC2..."
-        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa ec2-user@${{ steps.get_ip.outputs.EC2_PUBLIC_IP }} << 'EOF'
+        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa ec2-user@${{ env.EC2_PUBLIC_IP }} << 'EOF'
           set -e # Exit immediately if a command exits with a non-zero status.
           echo "Updating system packages..."
           sudo yum update -y
@@ -112,4 +112,4 @@ jobs:
           docker run -d -p 80:8000 --name spot2-container spot2-backend
           echo "Setup script finished."
         EOF
-      if: env.EC2_PUBLIC_IP
+      if: env.EC2_PUBLIC_IP != ''
