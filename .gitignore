@@ -49,3 +49,6 @@ alembic/versions/*.pyc
 
 # Node (si usas frontend en el mismo repo)
 node_modules/
+
+
+spot2.pem

@@ -19,8 +19,8 @@ jobs:
         SSH_PRIVATE_KEY: ${{ secrets.EC2_PRIVATE_KEY }}
         SOURCE: "./"
         REMOTE_HOST: "${{ secrets.EC2_HOST }}"
-        REMOTE_USER: "ec2-user"
-        TARGET: "/home/ec2-user/app"
+        REMOTE_USER: "ubuntu"
+        TARGET: "/home/ubuntu/app"
         EXCLUDE: ".git/, .github/, infra/, README.md"
 
     # Configurar y ejecutar la aplicación en Docker
@@ -28,16 +28,17 @@ jobs:
       uses: appleboy/ssh-action@master
       with:
         host: "${{ secrets.EC2_HOST }}"
-        username: "ec2-user"
+        username: "ubuntu"
         key: ${{ secrets.EC2_PRIVATE_KEY }}
         script: |
           # Verificar Docker
           if ! command -v docker &> /dev/null; then
             echo "Instalando Docker..."
-            sudo yum update -y
-            sudo yum install -y docker
-            sudo service docker start
-            sudo usermod -a -G docker ec2-user
+            sudo apt-get update -y
+            sudo apt-get install -y docker.io
+            sudo systemctl enable docker
+            sudo systemctl start docker
+            sudo usermod -a -G docker ubuntu
             
             # Instalar Docker Compose
             echo "Instalando Docker Compose..."
@@ -45,8 +46,8 @@ jobs:
             sudo chmod +x /usr/local/bin/docker-compose
             
             # Necesario para que los cambios de grupo tengan efecto en esta sesión
-            sudo -i -u ec2-user bash << 'EOC'
-              cd /home/ec2-user/app
+            sudo -i -u ubuntu bash << 'EOC'
+              cd /home/ubuntu/app
               docker-compose up -d --build
             EOC
           else
@@ -60,7 +61,7 @@ jobs:
             fi
             
             echo "Desplegando aplicación con Docker Compose..."
-            cd /home/ec2-user/app
+            cd /home/ubuntu/app
             docker-compose up -d --build
           fi
           
