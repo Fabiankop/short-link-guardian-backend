@@ -41,18 +41,18 @@ jobs:
           # Redirect all output to a temporary file to avoid GitHub Actions logs interference
           terraform output -raw instance_public_ip > /tmp/ip_output 2>/dev/null || echo "" > /tmp/ip_output
           IP=$(cat /tmp/ip_output | tr -d '\n')
-          
+
           if [[ -n "$IP" && "$IP" != "null" ]]; then
             # Use GitHub's environment file approach instead of direct commands
             echo "EC2_PUBLIC_IP=${IP}" >> "$GITHUB_ENV"
             echo "Successfully retrieved IP: ${IP}"
             exit 0
           fi
-          
+
           echo "Attempt $i: IP not available yet or 'terraform output' failed. Retrying in 30 seconds..."
           sleep 30
         done
-        
+
         echo "Failed to get EC2 IP after multiple attempts."
         exit 1
       working-directory: ./infra
@@ -88,7 +88,7 @@ jobs:
     - name: Run Setup Script on EC2
       run: |
         echo "Running setup script on EC2..."
-        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa ec2-user@${{ env.EC2_PUBLIC_IP }} << 'EOF'
+        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa ec2-user@${{ steps.get_ip.outputs.EC2_PUBLIC_IP }} << 'EOF'
           set -e # Exit immediately if a command exits with a non-zero status.
           echo "Updating system packages..."
           sudo yum update -y
@@ -112,4 +112,4 @@ jobs:
           docker run -d -p 80:8000 --name spot2-container spot2-backend
           echo "Setup script finished."
         EOF
-      if: env.EC2_PUBLIC_IP != ''
+      if: steps.get_ip.outputs.EC2_PUBLIC_IP != ''
