@@ -32,12 +32,21 @@ jobs:
     - name: Get EC2 IP
       id: get_ip
       run: |
-        echo "Obteniendo IP pública..."
-        terraform -chdir=infra output
-        IP=$(terraform -chdir=infra output -raw instance_public_ip)
-        echo "IP obtenida: $IP"
-        echo "EC2_IP=$IP" >> $GITHUB_ENV
-        echo "::add-mask::$IP"
+        echo "Esperando a que la IP pública esté disponible..."
+        for i in {1..5}; do
+          IP=$(terraform -chdir=infra output -raw instance_public_ip || echo "")
+          if [[ -n "$IP" ]]; then
+            echo "IP obtenida: $IP"
+            echo "EC2_IP=$IP" >> $GITHUB_ENV
+            echo "::add-mask::$IP"
+            exit 0
+          else
+            echo "IP no disponible aún, reintentando... ($i/5)"
+            sleep 10
+          fi
+        done
+        echo "Error: no se pudo obtener la IP pública después de varios intentos"
+        exit 1
 
 
     - name: Setup SSH
