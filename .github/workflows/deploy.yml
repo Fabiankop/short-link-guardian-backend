@@ -23,8 +23,8 @@ jobs:
         TARGET: "/home/ubuntu/app"
         EXCLUDE: ".git/, .github/, infra/, README.md"
 
-    # Configurar y ejecutar la aplicación en Docker
-    - name: Setup Docker and Run Application
+    # Instalar Docker y Docker Compose
+    - name: Install Docker and Docker Compose
       uses: appleboy/ssh-action@master
       with:
         host: "${{ secrets.EC2_HOST }}"
@@ -39,31 +39,30 @@ jobs:
             sudo systemctl enable docker
             sudo systemctl start docker
             sudo usermod -a -G docker ubuntu
-            
-            # Instalar Docker Compose
+          else
+            echo "Docker ya instalado"
+          fi
+          
+          # Verificar e instalar Docker Compose
+          if ! command -v docker-compose &> /dev/null; then
             echo "Instalando Docker Compose..."
             sudo curl -L "https://github.com/docker/compose/releases/download/v2.18.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
             sudo chmod +x /usr/local/bin/docker-compose
-            
-            # Necesario para que los cambios de grupo tengan efecto en esta sesión
-            sudo -i -u ubuntu bash << 'EOC'
-              cd /home/ubuntu/app
-              docker-compose up -d --build
-            EOC
           else
-            echo "Docker ya instalado, verificando Docker Compose..."
-            
-            # Verificar e instalar Docker Compose si es necesario
-            if ! command -v docker-compose &> /dev/null; then
-              echo "Instalando Docker Compose..."
-              sudo curl -L "https://github.com/docker/compose/releases/download/v2.18.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-              sudo chmod +x /usr/local/bin/docker-compose
-            fi
-            
-            echo "Desplegando aplicación con Docker Compose..."
-            cd /home/ubuntu/app
-            docker-compose up -d --build
+            echo "Docker Compose ya instalado"
           fi
+
+    # Ejecutar aplicación con Docker Compose
+    - name: Run Application with Docker Compose
+      uses: appleboy/ssh-action@master
+      with:
+        host: "${{ secrets.EC2_HOST }}"
+        username: "ubuntu"
+        key: ${{ secrets.EC2_PRIVATE_KEY }}
+        script: |
+          echo "Desplegando aplicación con Docker Compose..."
+          cd /home/ubuntu/app
+          docker-compose up -d --build
           
           # Verificar que el contenedor está corriendo
           sleep 5
