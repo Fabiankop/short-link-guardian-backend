@@ -1,3 +1,26 @@
+resource "aws_vpc" "main" {
+  cidr_block = "10.0.0.0/16"
+}
+
+resource "aws_subnet" "main" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.1.0/24"
+  availability_zone       = "us-east-1a"
+}
+
+resource "aws_instance" "app_server" {
+  ami                    = "ami-053b0d53c279acc90" # Amazon Linux 2
+  instance_type          = "t2.micro"
+  subnet_id              = aws_subnet.main.id
+  vpc_security_group_ids = [aws_security_group.allow_web_ssh.id]
+  key_name               = aws_key_pair.default.key_name
+
+  tags = {
+    Name = "ShortLinkServer"
+  }
+}
+
+
 resource "aws_key_pair" "default" {
   key_name   = "ec2-key"
   public_key = var.ec2_public_key
