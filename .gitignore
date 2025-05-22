@@ -1,0 +1,51 @@
+# Entornos virtuales
+.venv/
+venv/
+
+# Archivos de configuración de entorno
+.env
+.env.*
+
+# Archivos de Python compilados
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Archivos de logs y dumps
+*.log
+*.pot
+*.mo
+*.pid
+*.sqlite3
+
+# Archivos temporales de sistema operativo
+.DS_Store
+Thumbs.db
+
+# Archivos de tests y cobertura
+.coverage
+htmlcov/
+.tox/
+.pytest_cache/
+
+# Alembic
+alembic/versions/*.pyc
+
+# Docker
+*.pid
+*.seed
+
+# VSCode y otros IDEs
+.vscode/
+.idea/
+
+# Archivos de migración generados
+alembic/versions/*.pyc
+
+# Otros
+*.bak
+*.swp
+*.swo
+
+# Node (si usas frontend en el mismo repo)
+node_modules/

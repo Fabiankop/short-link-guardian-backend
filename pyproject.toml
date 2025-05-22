@@ -1,0 +1,47 @@
+[tool.black]
+"line-length" = 88
+"target-version" = ["py311"]
+
+[tool.isort]
+profile = "black"
+"line_length" = 88
+
+[tool.flake8]
+"max-line-length" = 88
+"extend-ignore" = "E203"
+
+[tool.alembic]
+script_location = "alembic"
+sqlalchemy_url = "env:DATABASE_URL"
+
+[tool.alembic.loggers]
+keys = ["root", "sqlalchemy", "alembic"]
+
+[tool.alembic.handlers]
+keys = ["console"]
+
+[tool.alembic.formatters]
+keys = ["generic"]
+
+[tool.alembic.logger_root]
+level = "WARN"
+handlers = ["console"]
+
+[tool.alembic.logger_sqlalchemy]
+level = "WARN"
+handlers = ["console"]
+qualname = "sqlalchemy.engine"
+
+[tool.alembic.logger_alembic]
+level = "INFO"
+handlers = ["console"]
+qualname = "alembic"
+
+[tool.alembic.handler_console]
+class = "StreamHandler"
+args = "(sys.stderr,)"
+level = "NOTSET"
+formatter = "generic"
+
+[tool.alembic.formatter_generic]
+format = "%(levelname)-5.5s [%(name)s] %(message)s"

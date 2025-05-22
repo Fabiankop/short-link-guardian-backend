@@ -1,0 +1,48 @@
+services:
+  db:
+    image: postgres:15
+    restart: always
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-app_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT:-5432}:5432"
+
+  redis:
+    image: redis:7
+    restart: always
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+
+  app:
+    build: .
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - .:/app
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:${DB_PORT:-5432}/${DB_NAME:-app_db}
+      - REDIS_URL=redis://redis:${REDIS_PORT:-6379}/0
+    depends_on:
+      - db
+      - redis
+    ports:
+      - "${APP_PORT:-8000}:8000"
+
+  worker:
+    build: .
+    command: python -m celery -A app.core.celery_app.celery_app worker --loglevel=info
+    volumes:
+      - .:/app
+    env_file: .env
+    environment:
+      - REDIS_URL=redis://redis:${REDIS_PORT:-6379}/0
+    depends_on:
+      - redis
+
+volumes:
+  postgres_data:

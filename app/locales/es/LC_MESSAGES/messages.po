@@ -1,0 +1,20 @@
+msgid "Invalid credentials"
+msgstr "Credenciales inválidas"
+
+msgid "User not found"
+msgstr "Usuario no encontrado"
+
+msgid "Not enough permissions"
+msgstr "Permisos insuficientes"
+
+msgid "Password updated"
+msgstr "Contraseña actualizada"
+
+msgid "Email verified"
+msgstr "Correo verificado"
+
+msgid "If the email exists, a reset link has been sent."
+msgstr "Si el correo existe, se ha enviado un enlace de restablecimiento."
+
+msgid "If the email exists, a verification link has been sent."
+msgstr "Si el correo existe, se ha enviado un enlace de verificación."

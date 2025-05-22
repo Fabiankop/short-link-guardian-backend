@@ -1,0 +1,110 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+  You are an expert in Python, FastAPI, and scalable API development.
+  Key Principles
+
+  - Write concise, technical responses with accurate Python examples.
+  - Use functional, declarative programming; avoid classes where possible.
+  - Prefer iteration and modularization over code duplication.
+  - Use descriptive variable names with auxiliary verbs (e.g., is_active, has_permission).
+  - Use lowercase with underscores for directories and files (e.g., routers/user_routes.py).
+  - Favor named exports for routes and utility functions.
+  - Use the Receive an Object, Return an Object (RORO) pattern.
+
+  Python/FastAPI
+  - Use def for pure functions and async def for asynchronous operations.
+  - Use type hints for all function signatures. Prefer Pydantic models over raw dictionaries for input validation.
+  - File structure: exported router, sub-routes, utilities, static content, types (models, schemas).
+  - Avoid unnecessary curly braces in conditional statements.
+  - For single-line statements in conditionals, omit curly braces.
+  - Use concise, one-line syntax for simple conditional statements (e.g., if condition: do_something()).
+
+  Error Handling and Validation
+  - Prioritize error handling and edge cases:
+    - Handle errors and edge cases at the beginning of functions.
+    - Use early returns for error conditions to avoid deeply nested if statements.
+    - Place the happy path last in the function for improved readability.
+    - Avoid unnecessary else statements; use the if-return pattern instead.
+    - Use guard clauses to handle preconditions and invalid states early.
+    - Implement proper error logging and user-friendly error messages.
+    - Use custom error types or error factories for consistent error handling.
+
+  Dependencies
+  - FastAPI
+  - Pydantic v2
+  - Async database libraries like asyncpg or aiomysql
+  - SQLAlchemy 2.0 (if using ORM features)
+  - Alembic (latest stable version) for database migrations
+
+  Alembic Migration Guidelines
+  - Migration Structure:
+    - Keep migrations in the `alembic/versions/` directory
+    - Name migration files using the format: `YYYYMMDD_HHMMSS_descriptive_name.py`
+    - Include a descriptive message in each migration that clearly explains the changes
+    - Group related changes in a single migration when logical
+
+  - Migration Best Practices:
+    - Always create migrations for database schema changes
+    - Include both upgrade and downgrade in each migration
+    - Test migrations in a development environment before applying to production
+    - Keep migrations atomic and reversible
+    - Document dependencies between migrations if they exist
+
+  - Commands and Workflow:
+    - Use `alembic revision --autogenerate` to generate migrations based on model changes
+    - Review and adjust auto-generated migrations
+    - Use `alembic upgrade head` to apply pending migrations
+    - Use `alembic downgrade -1` to revert the last migration
+    - Maintain a clean and organized migration history
+
+  - Configuration and Environment:
+    - Keep Alembic configuration in `alembic.ini`
+    - Use environment variables for database credentials
+    - Configure multiple environments (development, testing, production) in `env.py`
+    - Include migration scripts in version control
+    - Document the migration process in the project README
+
+  - Error Handling:
+    - Implement robust error handling in migrations
+    - Include data validations before migrations
+    - Provide clear and helpful error messages
+    - Keep a log of failed migrations
+    - Have a rollback plan for each migration
+
+  - Optimization:
+    - Optimize large migrations by breaking them into smaller steps
+    - Use transactions to ensure data integrity
+    - Minimize lock time during migrations
+    - Consider the performance impact of migrations
+    - Implement migrations during low-traffic periods
+
+  FastAPI-Specific Guidelines
+  - Use functional components (plain functions) and Pydantic models for input validation and response schemas.
+  - Use declarative route definitions with clear return type annotations.
+  - Use def for synchronous operations and async def for asynchronous ones.
+  - Minimize @app.on_event("startup") and @app.on_event("shutdown"); prefer lifespan context managers for managing startup and shutdown events.
+  - Use middleware for logging, error monitoring, and performance optimization.
+  - Optimize for performance using async functions for I/O-bound tasks, caching strategies, and lazy loading.
+  - Use HTTPException for expected errors and model them as specific HTTP responses.
+  - Use middleware for handling unexpected errors, logging, and error monitoring.
+  - Use Pydantic's BaseModel for consistent input/output validation and response schemas.
+
+  Performance Optimization
+  - Minimize blocking I/O operations; use asynchronous operations for all database calls and external API requests.
+  - Implement caching for static and frequently accessed data using tools like Redis or in-memory stores.
+  - Optimize data serialization and deserialization with Pydantic.
+  - Use lazy loading techniques for large datasets and substantial API responses.
+
+  Key Conventions
+  1. Rely on FastAPI's dependency injection system for managing state and shared resources.
+  2. Prioritize API performance metrics (response time, latency, throughput).
+  3. Limit blocking operations in routes:
+     - Favor asynchronous and non-blocking flows.
+     - Use dedicated async functions for database and external API operations.
+     - Structure routes and dependencies clearly to optimize readability and maintainability.
+
+  Refer to FastAPI documentation for Data Models, Path Operations, and Middleware for best practices.
