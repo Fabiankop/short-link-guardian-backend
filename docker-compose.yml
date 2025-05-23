@@ -1,4 +1,12 @@
 services:
+  ngrok:
+    image: ngrok/ngrok:latest
+    ports:
+      - "8000:8000"
+    command: ngrok tunnel --url=pangolin-happy-grackle.ngrok-free.app --addr=8000
+    restart: always
+    depends_on:
+      - app
   db:
     image: postgres:15
     restart: always

@@ -42,7 +42,7 @@ jobs:
           else
             echo "Docker ya instalado"
           fi
-          
+
           # Verificar e instalar Docker Compose
           if ! command -v docker-compose &> /dev/null; then
             echo "Instalando Docker Compose..."
@@ -63,7 +63,7 @@ jobs:
           echo "Desplegando aplicación con Docker Compose..."
           cd /home/ubuntu/app
           docker-compose up -d --build
-          
+
           # Verificar que el contenedor está corriendo
           sleep 5
           SERVICE_NAME=$(docker-compose ps --services | head -n 1)
@@ -80,10 +80,4 @@ jobs:
       run: |
         echo "====================================================="
         echo "🚀 DESPLIEGUE COMPLETADO EXITOSAMENTE 🚀"
-        echo "====================================================="
-        echo "Tu aplicación ha sido desplegada en:"
-        echo ""
-        echo "🔗 URL: http://${{ secrets.EC2_HOST }}"
-        echo ""
-        echo "Puedes acceder a la aplicación en este enlace"
         echo "====================================================="
