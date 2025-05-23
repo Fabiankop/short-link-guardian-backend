@@ -62,7 +62,7 @@ jobs:
         script: |
           echo "Desplegando aplicación con Docker Compose..."
           cd /home/ubuntu/app
-          docker-compose up -d --build
+          docker-compose down && docker-compose up -d --build
 
           # Verificar que el contenedor está corriendo
           sleep 5
