@@ -1,10 +1,13 @@
 services:
   ngrok:
     image: ngrok/ngrok:latest
-    command: ngrok tunnel --url=pangolin-happy-grackle.ngrok-free.app --addr=8000
-    restart: always
+    command: >
+      sh -c "ngrok config add-authtoken 2mG8XgY5cs8BG4ZtKhUa2vfKjF4_7XQ5pfG8oFomPED23ttjB &&
+            ngrok tunnel --url=pangolin-happy-grackle.ngrok-free.app --addr=app:8000"
     depends_on:
       - app
+    restart: always
+
   db:
     image: postgres:15
     restart: always
